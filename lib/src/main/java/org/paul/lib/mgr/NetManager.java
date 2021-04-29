@@ -1,16 +1,16 @@
 package org.paul.lib.mgr;
 
-import org.json.JSONException;
-import org.paul.lib.bean.DomainBean;
+import com.google.gson.Gson;
+import org.paul.lib.bean.BaseBean;
+import org.paul.lib.err.AuthorizeErr;
+import org.paul.lib.err.RetryErr;
 import org.paul.lib.utils.IoStreamUtil;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.concurrent.atomic.AtomicInteger;
 
-public class NetManager {
+final class NetManager {
     private static class Holder {
         private static NetManager INSTANCE = new NetManager();
     }
@@ -22,55 +22,51 @@ public class NetManager {
         return Holder.INSTANCE;
     }
 
-    private static volatile String[] SERVER_IPS = new String[]{"", ""};
-    private static AtomicInteger idx;
-
-    private HttpURLConnection initConnection() throws IOException {
-        HttpURLConnection httpURLConnection = null;
-        URL url = new URL(SERVER_IPS[idx.get()]);
-        HttpURLConnection httpUrlConnection = (HttpURLConnection) url.openConnection();
-        return httpURLConnection;
+    private HttpURLConnection initConnection(String spec) throws IOException {
+        URL url = new URL(spec);
+        return (HttpURLConnection) url.openConnection();
     }
 
-    DomainBean post() {
+//    DomainBean post() throws IOException, JSONException, RetryErr {
+//        HttpURLConnection httpURLConnection = null;
+//        try {
+//            httpURLConnection = initConnection();
+//            httpURLConnection.setRequestMethod("post");
+//            int responseCode = httpURLConnection.getResponseCode();
+//            if (responseCode == HttpURLConnection.HTTP_OK) {
+//                String response = IoStreamUtil.getString(httpURLConnection.getInputStream());
+//                return DomainBean.newInstance(response);
+//            } else if (responseCode == HttpURLConnection.HTTP_UNAUTHORIZED) {
+//                //未授权帐户
+//                return null;
+//            }else{
+//                throw new RetryErr();
+//            }
+//        } finally {
+//            httpURLConnection.disconnect();
+//        }
+//    }
+
+    <T extends BaseBean> T getRequest(String spec, Class<T> clz) throws IOException, RetryErr, AuthorizeErr {
         HttpURLConnection httpURLConnection = null;
         try {
-            httpURLConnection = initConnection();
+            httpURLConnection = initConnection(spec);
+            httpURLConnection.setRequestMethod("get");
             int responseCode = httpURLConnection.getResponseCode();
             if (responseCode == HttpURLConnection.HTTP_OK) {
                 String response = IoStreamUtil.getString(httpURLConnection.getInputStream());
-                return DomainBean.newInstance(response);
+                return new Gson().fromJson(response, clz);
             } else if (responseCode == HttpURLConnection.HTTP_UNAUTHORIZED) {
                 //未授权帐户
-                return null;
+                throw new AuthorizeErr();
             } else {
-                //retry
-//                if (idx.get() == SERVER_IPS.length - 1) {
-//                    idx.set(0);
-//                } else {
-//                    idx.incrementAndGet();
-//                }
-                return post();
+                //需要重试
+                throw new RetryErr();
             }
-        } catch (IOException e) {
-//            e.printStackTrace();
-            return post();
-        } catch (JSONException e) {
-//            e.printStackTrace();
-            return post();
         } finally {
-            httpURLConnection.disconnect();
+            if (null != httpURLConnection) {
+                httpURLConnection.disconnect();
+            }
         }
-    }
-
-    void get() {
-
-    }
-
-    private static final int PROTECTED_LENGTH = 51200;// 输入流保护 50KB
-
-    private String strFromStream(InputStream inputStream) throws IOException {
-
-        return null;
     }
 }

@@ -4,7 +4,7 @@ import android.content.ContentValues;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-public class DomainBean extends BaseBean {
+public final class DomainBean extends BaseBean {
 
     private String domainName;
     private String[] ips;
@@ -18,15 +18,15 @@ public class DomainBean extends BaseBean {
         this.queryTime = queryTime;
     }
 
-    public static DomainBean newInstance(String response) throws JSONException {
-        JSONObject jsonObject = new JSONObject(response);
-        String domainName = jsonObject.getString("domainName");
-        String[] ips = jsonObject.getString("ips").split(",");
-        long ttl = jsonObject.getLong("ttl");
-        long queryTime = System.currentTimeMillis() / 1000;
-        DomainBean domainBean = new DomainBean(domainName, ips, ttl, queryTime);
-        return domainBean;
-    }
+//    public DomainBean newInstance(String response) throws JSONException {
+//        JSONObject jsonObject = new JSONObject(response);
+//        String domainName = jsonObject.getString("domainName");
+//        String[] ips = jsonObject.getString("ips").split(",");
+//        long ttl = jsonObject.getLong("ttl");
+//        long queryTime = System.currentTimeMillis() / 1000;
+//        DomainBean domainBean = new DomainBean(domainName, ips, ttl, queryTime);
+//        return domainBean;
+//    }
 
     public String getDomainName() {
         return domainName;
@@ -34,6 +34,19 @@ public class DomainBean extends BaseBean {
 
     public String[] getIps() {
         return ips;
+    }
+
+    int idx;
+
+    public String getIp() {
+
+        int length = ips.length;
+        if (idx > length - 1) {
+            idx = 0;
+        }
+        String ip = ips[idx];
+        idx++;
+        return ip;
     }
 
     public long getTtl() {
@@ -44,7 +57,8 @@ public class DomainBean extends BaseBean {
         return queryTime;
     }
 
-    public ContentValues getContentValues() {
+    @Override
+    public ContentValues toContentValues() {
         ContentValues contentValues = new ContentValues();
         contentValues.put("domainName", domainName);
         contentValues.put("ips", ips.toString());
@@ -52,4 +66,5 @@ public class DomainBean extends BaseBean {
         contentValues.put("queryTime", queryTime);
         return contentValues;
     }
+
 }

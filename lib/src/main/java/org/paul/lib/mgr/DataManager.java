@@ -2,27 +2,46 @@ package org.paul.lib.mgr;
 
 import android.content.Context;
 import org.paul.lib.bean.DomainBean;
-import org.paul.lib.service.DataHelper;
+import org.paul.lib.mgr.callback.Host2IpConverter;
+import org.paul.lib.mgr.ob.Subject;
+import org.paul.lib.service.DbHelper;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-public class DataManager {
+/**
+ * 数据操作类 观察者 当发现数据过期或不存在的数据时 驱动更新缓存
+ */
+public final class DataManager extends Subject implements Host2IpConverter {
 
-    private DataHelper dataHelper;
+    private DbHelper dbHelper;
     private ConcurrentMap<String, DomainBean> mem = new ConcurrentHashMap<>();
+    private boolean expired;
+
+
+    @Override
+    public String host2Ip(String host) {
+        DomainBean domainBean = loadFromMem(host);
+        if (null == domainBean) {
+            domainBean = loadFromDb(host);
+        }
+        if (checkDomain(domainBean)) {
+            return domainBean.getIp();
+        } else {
+            //TODO 启动更新ip-host任务 异步执行
+            notifyObservers(host);
+            return host;
+        }
+    }
 
     private static class Holder {
         private static DataManager INSTANCE = new DataManager();
     }
 
-    private DataManager() {
-    }
-
-    static DataManager getInstance(Context context) {
+    public static DataManager getInstance(Context context) {
         DataManager instance = Holder.INSTANCE;
-        if (null == instance.dataHelper) {
-            instance.dataHelper = new DataHelper(context, 1);
+        if (null == instance.dbHelper) {
+            instance.dbHelper = new DbHelper(context);
         }
         return instance;
     }
@@ -33,8 +52,7 @@ public class DataManager {
     }
 
     private DomainBean loadFromDb(String domain) {
-        DomainBean domainBean = dataHelper.query(domain);
-        return domainBean;
+        return dbHelper.query(domain);
     }
 
     private void writeToMem(DomainBean domainBean) {
@@ -45,34 +63,33 @@ public class DataManager {
 
     private void writeToDb(DomainBean domainBean) {
         if (null != domainBean) {
-            dataHelper.update(domainBean);
+            dbHelper.update(domainBean);
         }
     }
 
-    void loadIpByDomain(String domain) {
-        DomainBean result = null;
-        //优先从缓存读取
-        result = loadFromMem(domain);
-        if (null == result) {
-            //从数据库读取
-            result = loadFromDb(domain);
-            mem.put(domain, result);
-        }
-        if (!checkDomain(result)) {
-            //缓存不可用(包括过期、为空)
-            ThreadManager.getInstance().submitSync();
-        }
-        //数据库不可用(包括过期、为空)
-        //更新本地
-    }
-
+    /**
+     * 验证数据是否可用（是否为空，是否允许返回过期ip）
+     *
+     * @param domainBean
+     * @return
+     */
     private boolean checkDomain(DomainBean domainBean) {
         if (null == domainBean) {
             return false;
         }
         long queryTime = domainBean.getQueryTime();
         long ttl = domainBean.getTtl();
-        boolean b = (queryTime + ttl) >= System.currentTimeMillis() / 1000;
-        return b;//TODO 允许返回过期
+        boolean isOutTime = (queryTime + ttl) >= System.currentTimeMillis() / 1000;//未过期ip
+        return isOutTime || expired;
     }
+
+    /**
+     * 设置是否允许过期
+     *
+     * @param expired
+     */
+    public void setExpired(boolean expired) {
+        this.expired = expired;
+    }
+
 }

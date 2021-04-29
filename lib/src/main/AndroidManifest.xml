@@ -1,2 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="org.paul.lib"/>
+          package="org.paul.lib">
+
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+</manifest>

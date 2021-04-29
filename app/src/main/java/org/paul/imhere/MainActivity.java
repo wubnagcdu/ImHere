@@ -28,4 +28,9 @@ public class MainActivity extends AppCompatActivity {
      * which is packaged with this application.
      */
     public native String stringFromJNI();
+
+
+    private String ip;
+
+    public native void changeIp(String ip);
 }

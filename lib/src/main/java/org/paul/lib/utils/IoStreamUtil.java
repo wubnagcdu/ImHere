@@ -53,7 +53,7 @@ public class IoStreamUtil {
         try {
             object.close();
         } catch (IOException e) {
-            e.printStackTrace();
+            LogUtil.logE(e);
         }
     }
 }
