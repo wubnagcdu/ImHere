@@ -1,9 +1,10 @@
 package org.paul.lib.mgr;
 
 import android.content.Context;
+import org.paul.lib.bean.BaseBean;
 import org.paul.lib.bean.DomainBean;
 import org.paul.lib.mgr.callback.Host2IpConverter;
-import org.paul.lib.mgr.ob.Subject;
+import org.paul.lib.mgr.ob.DnsSubject;
 import org.paul.lib.service.DbHelper;
 
 import java.util.concurrent.ConcurrentHashMap;
@@ -12,7 +13,7 @@ import java.util.concurrent.ConcurrentMap;
 /**
  * 数据操作类 观察者 当发现数据过期或不存在的数据时 驱动更新缓存
  */
-public final class DataManager extends Subject implements Host2IpConverter {
+public final class DataManager extends DnsSubject implements Host2IpConverter {
 
     private DbHelper dbHelper;
     private ConcurrentMap<String, DomainBean> mem = new ConcurrentHashMap<>();
@@ -20,7 +21,7 @@ public final class DataManager extends Subject implements Host2IpConverter {
 
 
     @Override
-    public String host2Ip(String host) {
+    public String host2Ip(String host,boolean instant) {
         DomainBean domainBean = loadFromMem(host);
         if (null == domainBean) {
             domainBean = loadFromDb(host);
@@ -29,8 +30,22 @@ public final class DataManager extends Subject implements Host2IpConverter {
             return domainBean.getIp();
         } else {
             //TODO 启动更新ip-host任务 异步执行
-            notifyObservers(host);
-            return host;
+            setChanged();
+            if(instant) {
+                notifyObservers(host, new DnsTaskManager.TaskCallback() {
+                    @Override
+                    public <T extends BaseBean> void onFinish(T t) {
+                        if (t instanceof DomainBean) {
+                            DomainBean bean = (DomainBean) t;
+                            writeToMem(bean);
+                            writeToDb(bean);
+                        }
+                    }
+                }, DomainBean.class);
+                return host;
+            }else {
+                return notifyObserversInstant(host, DomainBean.class);
+            }
         }
     }
 

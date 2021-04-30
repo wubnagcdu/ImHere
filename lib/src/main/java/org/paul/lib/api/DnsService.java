@@ -52,21 +52,34 @@ public final class DnsService {
     public static void setDownGradingFilter(DownGradingFilter filter) {
     }
 
-    public static void init(Context context) {
+    public static void init(Context context, boolean autoMode) {
         if (null == DnsService.CONTEXT) {
             CONTEXT = context.getApplicationContext();
-            initMgr();
+            initMgr(autoMode);
         }
     }
 
-    private static void initMgr() {
+    private static void initMgr(boolean auto) {
         sharedManager = SharedManager.getInstance(CONTEXT);
         dataManager = DataManager.getInstance(CONTEXT);
-        boolean autoMode = sharedManager.read(Config.AUTO_MODE, false);
-
-        if (autoMode) {
+        sharedManager.write(Config.AUTO_MODE,auto);
+        if (auto) {
             StreamManager.autoMode(dataManager);
         }
+    }
+
+    /**
+     * 根据参数domain返回缓存ip，
+     * 如果同步获取 则判断是否有缓存，
+     * 如果没有缓存则直接请求数据并返回，该方式会阻塞线程
+     * 如果异步获取 则判断是否有缓存，
+     * 如果没有缓存则返回原host并异步启动更新缓存任务，该方式不会阻塞线程
+     * @param domain
+     * @param instant 是否异步
+     * @return
+     */
+    public String getIp(String domain,boolean instant){
+        return dataManager.host2Ip(domain,instant);
     }
 
 }

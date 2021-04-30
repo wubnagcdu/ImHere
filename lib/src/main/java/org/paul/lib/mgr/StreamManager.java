@@ -136,9 +136,16 @@ public final class StreamManager {
     private static URL buildUrl(URL url) throws MalformedURLException {
         String spec = url.toString();
         String host = url.getHost();
-        String ip = HOST2IPCONVERTER.host2Ip(host);
+        if(checkHost(host)){
+            return url;
+        }
+        String ip = HOST2IPCONVERTER.host2Ip(host,false);
         String s = spec.replaceFirst(host, ip);
         return new URL(s);
+    }
+
+    private static boolean checkHost(String host) {
+        return false;
     }
 
     private static void setHost2IpConverter(Host2IpConverter host2IPCONVERTER) {
