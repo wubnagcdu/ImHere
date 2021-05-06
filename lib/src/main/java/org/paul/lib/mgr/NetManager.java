@@ -51,7 +51,7 @@ final class NetManager {
         HttpURLConnection httpURLConnection = null;
         try {
             httpURLConnection = initConnection(spec);
-            httpURLConnection.setRequestMethod("get");
+            httpURLConnection.setRequestMethod("GET");
             int responseCode = httpURLConnection.getResponseCode();
             if (responseCode == HttpURLConnection.HTTP_OK) {
                 String response = IoStreamUtil.getString(httpURLConnection.getInputStream());

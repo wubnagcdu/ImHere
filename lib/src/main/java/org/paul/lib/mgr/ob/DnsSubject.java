@@ -27,7 +27,7 @@ public class DnsSubject {
         this.dnsObserver = dnsObserver;
     }
 
-    public void notifyObservers(Object arg, DnsTaskManager.TaskCallback callback,Class clz) {
+    public void notifyObservers(Object arg) {
 //        Object[] arrLocal;
 //        synchronized (this) {
 //            if (!hasChanged())
@@ -38,9 +38,9 @@ public class DnsSubject {
 //
 //        for (int i = arrLocal.length-1; i>=0; i--)
 //            ((DnsObserver)arrLocal[i]).update(this, arg);
-        dnsObserver.update(this,arg,callback,clz);
+        dnsObserver.update(this,arg);
     }
-    public String notifyObserversInstant(Object arg,Class clz){
+//    public String notifyObserversInstant(Object arg,Class clz){
 //        Object[]arrLocal;
 //        synchronized (this){
 //            if(!hasChanged()){
@@ -52,8 +52,8 @@ public class DnsSubject {
 //        for(int i=arrLocal.length-1;i>=0;i--){
 //            ((DnsObserver)arrLocal[i]).updateInstant(this,arg);
 //        }
-        return dnsObserver.updateInstant(this,arg,clz);
-    }
+//        return dnsObserver.updateInstant(this,arg,clz);
+//    }
 //    public synchronized void deleteObservers() {
 //        obs.removeAllElements();
 //    }

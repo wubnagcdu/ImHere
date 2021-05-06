@@ -1,6 +1,8 @@
 package org.paul.lib.mgr;
 
+import org.paul.lib.api.DownGradingFilter;
 import org.paul.lib.mgr.callback.Host2IpConverter;
+import org.paul.lib.utils.IpUtil;
 import org.paul.lib.utils.LogUtil;
 
 import java.io.IOException;
@@ -18,6 +20,18 @@ public final class StreamManager {
     private static final List<String> PROTOCOLS = new ArrayList();
     private volatile static Boolean ENABLE_CONVERT = null;
     private static Host2IpConverter HOST2IPCONVERTER;
+    private static DownGradingFilter defaultFilter = new DownGradingFilter() {
+        @Override
+        public boolean shouldGrade(String host) {
+            //默认不降级
+            return false;
+        }
+    };
+    private static DownGradingFilter userFilter;
+
+    public static void setUserFilter(DownGradingFilter userFilter) {
+        StreamManager.userFilter = userFilter;
+    }
 
     /**
      * 加载固定类型协议
@@ -43,8 +57,12 @@ public final class StreamManager {
                 String next = (String) iterator.next();
                 new URL(next, "feona.net", "");
             }
-            Field field = URL.class.getDeclaredField("streamHandlers");
+            Field field = URL.class.getDeclaredField("handlers");
+            if(null==field){
+                field=URL.class.getDeclaredField("streamHandlers");
+            }
             field.setAccessible(true);
+
             Hashtable hashtable = (Hashtable) field.get(null);
             Iterator iterator1 = PROTOCOLS.iterator();
             while (iterator1.hasNext()) {
@@ -96,6 +114,7 @@ public final class StreamManager {
                 method.setAccessible(true);
                 URLConnection urlConnection = (URLConnection) method.invoke(this.handler,
                         new Object[]{buildUrl(url)});
+                LogUtil.logD(urlConnection.getURL().toString());
                 return urlConnection;
             } catch (Exception e) {
                 throw new IOException();
@@ -136,16 +155,22 @@ public final class StreamManager {
     private static URL buildUrl(URL url) throws MalformedURLException {
         String spec = url.toString();
         String host = url.getHost();
-        if(checkHost(host)){
+        if (checkHost(host)) {
             return url;
         }
-        String ip = HOST2IPCONVERTER.host2Ip(host,false);
+        String ip = HOST2IPCONVERTER.host2Ip(host, false);
         String s = spec.replaceFirst(host, ip);
         return new URL(s);
     }
 
+    /**
+     *  是否需要降级 除去已经替换的 以及服务器地址 以及用户配置降级地址
+     * @param host
+     * @return
+     */
     private static boolean checkHost(String host) {
-        return false;
+        return IpUtil.isIpv4(host) || IpUtil.isIpv6(host) || defaultFilter.shouldGrade(host)
+                || (null != userFilter && userFilter.shouldGrade(host));
     }
 
     private static void setHost2IpConverter(Host2IpConverter host2IPCONVERTER) {

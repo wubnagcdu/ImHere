@@ -2,6 +2,7 @@ package org.paul.lib.api;
 
 import android.content.Context;
 import org.paul.lib.mgr.DataManager;
+import org.paul.lib.mgr.DnsTaskManager;
 import org.paul.lib.mgr.SharedManager;
 import org.paul.lib.mgr.StreamManager;
 
@@ -64,6 +65,7 @@ public final class DnsService {
         dataManager = DataManager.getInstance(CONTEXT);
         sharedManager.write(Config.AUTO_MODE,auto);
         if (auto) {
+//            dataManager.setDnsObserver(DnsTaskManager.getInstance(sharedManager));
             StreamManager.autoMode(dataManager);
         }
     }

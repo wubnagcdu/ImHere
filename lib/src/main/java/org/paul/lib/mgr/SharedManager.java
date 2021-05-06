@@ -1,5 +1,6 @@
 package org.paul.lib.mgr;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.SharedPreferences;
 
@@ -13,7 +14,8 @@ public final class SharedManager {
     private static final String SPF_LABLE = "dns_spf";
 
     private static class Holder {
-        private static SharedManager INSTANCE = new SharedManager();
+        @SuppressLint("StaticFieldLeak")
+        private static final SharedManager INSTANCE = new SharedManager();
     }
 
     private SharedManager() {
@@ -42,14 +44,14 @@ public final class SharedManager {
         if (value instanceof Float) {
             edit.putFloat(key, (Float) value);
         }
-        edit.commit();
+        edit.apply();
     }
 
     public void write(String key, boolean value) {
         SharedPreferences sharedPreferences = context.getSharedPreferences(SPF_LABLE, Context.MODE_PRIVATE);
         SharedPreferences.Editor edit = sharedPreferences.edit();
         edit.putBoolean(key, value);
-        edit.commit();
+        edit.apply();
     }
 
     public void write(String key, String... arg) {
@@ -62,7 +64,7 @@ public final class SharedManager {
         if (length > 1) {
             edit.putStringSet(key, new HashSet<String>(Arrays.asList(arg)));
         }
-        edit.commit();
+        edit.apply();
     }
 
     public Number read(String key, Number defaultValue) {
@@ -85,7 +87,7 @@ public final class SharedManager {
         return sharedPreferences.getBoolean(key, defaultValue);
     }
 
-    public String read(String key, String defaultValue) {
+    String read(String key, String defaultValue) {
         SharedPreferences sharedPreferences = context.getSharedPreferences(SPF_LABLE, Context.MODE_PRIVATE);
         return sharedPreferences.getString(key, defaultValue);
     }

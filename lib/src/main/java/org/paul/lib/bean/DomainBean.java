@@ -6,30 +6,24 @@ import org.json.JSONObject;
 
 public final class DomainBean extends BaseBean {
 
-    private String domainName;
+    private String domain;
     private String[] ips;
     private long ttl;
     private long queryTime;
 
-    public DomainBean(String domainName, String[] ips, long ttl, long queryTime) {
-        this.domainName = domainName;
+    public DomainBean(String domain, String[] ips, long ttl, long queryTime) {
+        this.domain = domain;
         this.ips = ips;
         this.ttl = ttl;
         this.queryTime = queryTime;
     }
 
-//    public DomainBean newInstance(String response) throws JSONException {
-//        JSONObject jsonObject = new JSONObject(response);
-//        String domainName = jsonObject.getString("domainName");
-//        String[] ips = jsonObject.getString("ips").split(",");
-//        long ttl = jsonObject.getLong("ttl");
-//        long queryTime = System.currentTimeMillis() / 1000;
-//        DomainBean domainBean = new DomainBean(domainName, ips, ttl, queryTime);
-//        return domainBean;
-//    }
+    public void setQueryTime(long queryTime) {
+        this.queryTime = queryTime;
+    }
 
     public String getDomainName() {
-        return domainName;
+        return domain;
     }
 
     public String[] getIps() {
@@ -60,7 +54,7 @@ public final class DomainBean extends BaseBean {
     @Override
     public ContentValues toContentValues() {
         ContentValues contentValues = new ContentValues();
-        contentValues.put("domainName", domainName);
+        contentValues.put("domainName", domain);
         contentValues.put("ips", ips.toString());
         contentValues.put("ttl", ttl);
         contentValues.put("queryTime", queryTime);

@@ -1,43 +1,30 @@
 package org.paul.lib.mgr;
 
+import android.text.TextUtils;
+import org.paul.lib.api.Config;
 import org.paul.lib.bean.BaseBean;
-import org.paul.lib.bean.DomainBean;
 import org.paul.lib.err.AuthorizeErr;
 import org.paul.lib.err.RetryErr;
-import org.paul.lib.mgr.ob.DnsObserver;
 import org.paul.lib.mgr.ob.DnsSubject;
 import org.paul.lib.utils.LogUtil;
 
 import java.io.IOException;
+import java.util.Locale;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 
 /**
  * 任务启动管理
  */
-public final class DnsTaskManager implements DnsObserver {
+public final class DnsTaskManager /*implements DnsObserver */extends DnsSubject{
 
     private static String[] ips = new String[]{"49.4.57.102", "49.4.121.11"};
     private static int idx;
     private ThreadManager threadManager;
-    private NetManager netManager;
+    private static NetManager netManager;
+    private static SharedManager sharedManager;
 
-    @Override
-    public void update(DnsSubject subject, Object object,TaskCallback callback,Class clz) {
-        //TODO 启动任务
-        excuteTaskAsync((String) object, callback,clz);
-    }
-
-    @Override
-    public <T extends BaseBean> String updateInstant(DnsSubject subject, Object object,Class<T> clz) {
-        T t = excuteTaskSync((String) object, clz);
-        if(t instanceof DomainBean){
-            return ((DomainBean) t).getIp();
-        }
-        return (String)object;
-    }
-
-    private static class Holder {
+    public static class Holder {
         private static DnsTaskManager INSTANCE = new DnsTaskManager();
     }
 
@@ -46,12 +33,17 @@ public final class DnsTaskManager implements DnsObserver {
         netManager = NetManager.getInstance();
     }
 
-    public static DnsTaskManager getInstance() {
-        return Holder.INSTANCE;
+    public static DnsTaskManager getInstance(SharedManager sharedManager) {
+        DnsTaskManager instance = Holder.INSTANCE;
+        if(null==instance.sharedManager){
+            if(null!=sharedManager){
+                instance.sharedManager=sharedManager;
+            }
+        }
+        return instance;
     }
 
-    class Task<T extends BaseBean> implements Callable<T> {
-
+    class Task<T extends BaseBean> implements Callable<T> ,Runnable{
         private String domain;
         private Class<T> clz;
         private int retryTime;
@@ -62,9 +54,11 @@ public final class DnsTaskManager implements DnsObserver {
         }
 
         @Override
-        public T call() {
+        public T call(){
             try {
-                return netManager.getRequest(buildSpec(domain), clz);
+                T response = netManager.getRequest(buildSpec(domain), clz);
+                notifyObservers(response);
+                return response;
             } catch (IOException e) {
                 return retry();
             } catch (RetryErr retryErr) {
@@ -75,17 +69,21 @@ public final class DnsTaskManager implements DnsObserver {
         }
 
         private T retry() {
-            synchronized (DnsTaskManager.this) {
-//                fixIp();
-                if(retryTime>=ips.length){
+            synchronized (Task.this) {
+                if (retryTime >= ips.length) {
                     return null;
                 }
-                if(++idx==ips.length){
-                    idx=0;
+                if (++idx == ips.length) {
+                    idx = 0;
                 }
                 retryTime++;
                 return call();
             }
+        }
+
+        @Override
+        public void run() {
+            call();
         }
     }
 
@@ -105,36 +103,38 @@ public final class DnsTaskManager implements DnsObserver {
      * @return T
      */
     <T extends BaseBean> T excuteTaskSync(String domain, Class<T> clz) {
-        T result = null;
         try {
-            result = threadManager.submitTask(new Task<>(domain, clz));
+            return threadManager.submitTask(new Task<T>(domain, clz)).get();
         } catch (ExecutionException e) {
             LogUtil.logE(e);
         } catch (InterruptedException e) {
             LogUtil.logE(e);
         }
-        return result;
+        return null;
     }
 
     /**
      * 异步任务
      */
-    <T extends BaseBean> void excuteTaskAsync(String domain, TaskCallback taskCallback, Class<T> clz) {
-        T result =null;
-        try {
-            result=threadManager.submitTask(new Task<>(domain,clz));
-            taskCallback.onFinish(result);
-        } catch (InterruptedException e) {
-            LogUtil.logE(e);
-        } catch (ExecutionException e) {
-            LogUtil.logE(e);
-        }
+    <T extends BaseBean> void excuteTaskAsync(String domain, Class<T> clz) {
+        threadManager.submitTask(new Task<T>(domain,clz));
     }
 
-    private String buildSpec(String domain) {
+    /**
+     * 根据domain 以及用户id创建请求url
+     *
+     * @param domain
+     * @return
+     */
+    private static String buildSpec(String domain) {
         StringBuilder stringBuilder = new StringBuilder();
-        stringBuilder.append("http://").append(ips[idx]).append(100).append(domain);
-        //TODO ip 相关构造 url 地址
+        String account = sharedManager.read(Config.ACCOUNT_ID, "1000013");
+        String sourceIp = sharedManager.read(Config.RESCOURCE_IP, "");
+        String apiPath = String.format(Locale.getDefault(), "/%s/resolve?domain=%s", account, domain);
+        stringBuilder.append("http://").append(ips[idx]).append(apiPath).append(
+                TextUtils.isEmpty(sourceIp) ? "" :
+                        String.format(Locale.getDefault(), "&ip=%s", sourceIp)
+        );
         return stringBuilder.toString();
     }
 

@@ -1,9 +1,9 @@
 package org.paul.lib.mgr;
 
 import android.content.Context;
-import org.paul.lib.bean.BaseBean;
 import org.paul.lib.bean.DomainBean;
 import org.paul.lib.mgr.callback.Host2IpConverter;
+import org.paul.lib.mgr.ob.DnsObserver;
 import org.paul.lib.mgr.ob.DnsSubject;
 import org.paul.lib.service.DbHelper;
 
@@ -11,40 +11,46 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 /**
- * 数据操作类 观察者 当发现数据过期或不存在的数据时 驱动更新缓存
+ * 数据操作类
  */
-public final class DataManager extends DnsSubject implements Host2IpConverter {
+public final class DataManager /*extends DnsSubject*/ implements Host2IpConverter, DnsObserver {
 
     private DbHelper dbHelper;
     private ConcurrentMap<String, DomainBean> mem = new ConcurrentHashMap<>();
     private boolean expired;
+    private DnsTaskManager dnsTaskManager;
+    private SharedManager sharedManager;
 
 
     @Override
-    public String host2Ip(String host,boolean instant) {
+    public String host2Ip(String host, boolean instant) {
         DomainBean domainBean = loadFromMem(host);
         if (null == domainBean) {
             domainBean = loadFromDb(host);
         }
         if (checkDomain(domainBean)) {
+            if (!isInTime(domainBean)) {
+                dnsTaskManager.excuteTaskAsync(host, DomainBean.class);
+            }
             return domainBean.getIp();
         } else {
-            //TODO 启动更新ip-host任务 异步执行
-            setChanged();
-            if(instant) {
-                notifyObservers(host, new DnsTaskManager.TaskCallback() {
-                    @Override
-                    public <T extends BaseBean> void onFinish(T t) {
-                        if (t instanceof DomainBean) {
-                            DomainBean bean = (DomainBean) t;
-                            writeToMem(bean);
-                            writeToDb(bean);
-                        }
-                    }
-                }, DomainBean.class);
+            if (instant) {
+                return dnsTaskManager.excuteTaskSync(host, DomainBean.class).getIp();
+            } else {
+                dnsTaskManager.excuteTaskAsync(host, DomainBean.class);
                 return host;
-            }else {
-                return notifyObserversInstant(host, DomainBean.class);
+            }
+        }
+    }
+
+    @Override
+    public void update(DnsSubject subject, Object object) {
+        if (null != object) {
+            if (object instanceof DomainBean) {
+                DomainBean domainBean = (DomainBean) object;
+                domainBean.setQueryTime(System.currentTimeMillis() / 1000);
+                writeToMem(domainBean);
+                writeToDb(domainBean);
             }
         }
     }
@@ -57,13 +63,15 @@ public final class DataManager extends DnsSubject implements Host2IpConverter {
         DataManager instance = Holder.INSTANCE;
         if (null == instance.dbHelper) {
             instance.dbHelper = new DbHelper(context);
+            instance.sharedManager = SharedManager.getInstance(context);
+            instance.dnsTaskManager = DnsTaskManager.getInstance(instance.sharedManager);
+            instance.dnsTaskManager.setDnsObserver(instance);
         }
         return instance;
     }
 
     private DomainBean loadFromMem(String domain) {
-        DomainBean domainBean = mem.get(domain);
-        return domainBean;
+        return mem.get(domain);
     }
 
     private DomainBean loadFromDb(String domain) {
@@ -92,10 +100,20 @@ public final class DataManager extends DnsSubject implements Host2IpConverter {
         if (null == domainBean) {
             return false;
         }
+        boolean isInTime = isInTime(domainBean);
+        return isInTime || expired;
+    }
+
+    /**
+     * 是否过期
+     *
+     * @param domainBean
+     * @return
+     */
+    private boolean isInTime(DomainBean domainBean) {
         long queryTime = domainBean.getQueryTime();
         long ttl = domainBean.getTtl();
-        boolean isOutTime = (queryTime + ttl) >= System.currentTimeMillis() / 1000;//未过期ip
-        return isOutTime || expired;
+        return (queryTime + ttl) >= System.currentTimeMillis() / 1000;
     }
 
     /**
@@ -106,5 +124,4 @@ public final class DataManager extends DnsSubject implements Host2IpConverter {
     public void setExpired(boolean expired) {
         this.expired = expired;
     }
-
 }

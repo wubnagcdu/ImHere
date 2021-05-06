@@ -17,7 +17,7 @@ public class DbHelper extends SQLiteOpenHelper {
     @Override
     public void onCreate(SQLiteDatabase db) {
         db.execSQL(tableSql);
-        database = getWritableDatabase();
+//        database = getWritableDatabase();
     }
 
     @Override
@@ -32,7 +32,15 @@ public class DbHelper extends SQLiteOpenHelper {
             "ips TEXT,ttl INT,queryTime TIMESTAMP,UNIQUE(domainName))";// 建表语句
     private SQLiteDatabase database;//数据库引用
 
+    private SQLiteDatabase getDatabase(){
+        if(null==database){
+            database=getWritableDatabase();
+        }
+        return database;
+    }
+
     public void update(DomainBean domainBean) {
+        SQLiteDatabase database = getDatabase();
         database.beginTransaction();
         try {
             //插入（更新）一条数据
@@ -45,6 +53,7 @@ public class DbHelper extends SQLiteOpenHelper {
     }
 
     public DomainBean query(String domain) {
+        SQLiteDatabase database = getDatabase();
         database.beginTransaction();
         DomainBean domainBean = null;
         try {
@@ -65,6 +74,7 @@ public class DbHelper extends SQLiteOpenHelper {
     }
 
     public void delete(String domain) {
+        SQLiteDatabase database = getDatabase();
         database.beginTransaction();
         try {
             database.delete(tableName, "domainName=?", new String[]{domain});
@@ -75,6 +85,7 @@ public class DbHelper extends SQLiteOpenHelper {
     }
 
     public void clear() {
+        SQLiteDatabase database = getDatabase();
         database.beginTransaction();
         try {
             database.delete(tableName, null, null);

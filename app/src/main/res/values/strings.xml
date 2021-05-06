@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">ImHere</string>
+    <string name="original">Original</string>
+    <string name="okhttp">okhttp</string>
 </resources>
