@@ -3,7 +3,6 @@ package org.paul.imhere;
 import android.annotation.SuppressLint;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
-import android.webkit.WebView;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -11,8 +10,6 @@ public class MainActivity extends AppCompatActivity {
     static {
         System.loadLibrary("native-lib");
     }
-
-    private   WebView webView;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
